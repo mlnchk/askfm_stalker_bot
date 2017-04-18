@@ -1,48 +1,47 @@
-import requests
 import json
+import requests
+import time
 from bs4 import BeautifulSoup
 
-main_url = 'https://ask.fm'
-url = 'https://ask.fm/id69938822'
+url = 'https://ask.fm/p1026425/answers/poll'
 
-r = requests.get(url)
-with open('test.html', 'w') as output_file:
-  output_file.write(r.text)
+def make_request(url):
+    page = requests.get(url).text
+    soup = BeautifulSoup(page, 'html.parser')
+    return soup
 
-html_doc = open('test.html', 'r')
 
-soup = BeautifulSoup(html_doc, 'html.parser')
+def get_qa(soup):
+    answer = soup.findAll('div', {'class': 'streamItem-answer'})
+    qa_list = []
+    for i in range(len(answer)):
+        temp = dict(__question=answer[i].find('h2').get_text())
+        if answer[i].find('p', {'class': 'streamItemContent-answer'}) is not None:
+            temp['_answer'] = answer[i].find('p', {'class': 'streamItemContent-answer'}).get_text()
 
-# questions = soup.findAll('div',{'class':'streamItemContent-question'})
-# answers = soup.findAll('p',{'class':'streamItemContent-answer'})
-#
-# all = zip(questions, answers)
-#
-# qa_list = []
+        if answer[i].find('div', {'class': 'streamItem-visualItem'}) is not None:
+            temp['photo'] = answer[i].find('div', {'class': 'streamItem-visualItem'}).find('a')['data-url']
+        qa_list.append(temp)
+    return qa_list
 
-# for each_div, each_p in all:
-#     x, y = str(each_div).find('<h2>') + 4, str(each_div).find('</h2>')
-#     a, b = str(each_p).find('>') + 1, str(each_p).find('</p>')
-    # temp = dict(question=str(each_div)[x:y], answer=str(each_p)[a:b])
-    # qa_list.append(temp)
-    # print(str(each_div)[x:y])
-    # print('\t', str(each_p)[a:b], '\n')
 
-# print(json.dumps(qa_list, sort_keys=False, indent=2, ensure_ascii=False))
+def get_score(soup):
+    answer = soup.find('a', {'id': 'newItemsReady'})
+    score = answer['data-poll-url']
+    return score
 
-answer = soup.findAll('div', {'class': 'streamItem-answer'})
-# print(answer[0].find('div', {'class': 'streamItem-answer'}))
+soup = make_request(url)
+qa_dict = get_qa(soup)
+print(json.dumps(qa_dict, indent=2))
 
-for i in range(len(answer)):
-    print(answer[i].find('h2').get_text())
-    if answer[i].find('p', {'class': 'streamItemContent-answer'}) is not None:
-        print('\t', answer[i].find('p', {'class': 'streamItemContent-answer'}).get_text())
-    else:
-        print('\t no answer')
+new_url = 'https://ask.fm' + get_score(soup)
 
-    if answer[i].find('div', {'class': 'streamItem-visualItem'}) is not None:
-
-        print('\t', main_url + answer[i].find('div', {'class': 'streamItem-visualItem'}).find('a')['href'])
-    else:
-        print('\t no photo')
-    print('\n')
+while True:
+    new_request = requests.get(new_url)
+    print(new_request)
+    if new_request.status_code == 200:
+        soup = make_request(new_url)
+        new_qa_dict = get_qa(soup)
+        new_url = 'https://ask.fm' + get_score(soup)
+        qa_dict = get_qa(soup)
+    time.sleep(30)
